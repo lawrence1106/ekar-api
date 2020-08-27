@@ -11,6 +11,10 @@ const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
 const token =
   "3967d327829405b78f89d0587a6a5b5c32549A0118C983FA4A725C0F2D9FFCEA005503B1";
 
+app.get("/", (req, res) => {
+  res.send("Get Units: '/getUnits'");
+});
+
 app.get("/getUnits", (req, res) => {
   let formData = new FormData();
   formData.append("params", JSON.stringify({ token: token }));
