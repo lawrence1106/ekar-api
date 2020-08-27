@@ -1,0 +1,18 @@
+{
+  "name": "ekar",
+  "version": "1.0.0",
+  "description": "ekar remote api",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "author": "ats",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.20.0",
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "form-data": "^3.0.0",
+    "nodemon": "^2.0.4"
+  }
+}
