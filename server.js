@@ -46,16 +46,15 @@ app.get("/getUnits", (req, res) => {
         )
         .then((itemResponse) => {
           let allUnits = [];
-
-          for (let i = 0; i < itemResponse.data.items.length; i++) {
-            allUnits.push({
-              [i]: {
-                device_id: itemResponse.data.items[i].uid,
-                gps_latitude: itemResponse.data.items[i].pos.x,
-              },
-            });
-          }
-          console.log(allUnits);
+          res.json(itemResponse.data);
+          //   for (let i = 0; i < itemResponse.data.items.length; i++) {
+          //     allUnits.push({
+          //       [i]: {
+          //         device_id: itemResponse.data.items[i].uid,
+          //       },
+          //     });
+          //   }
+          //   console.log(allUnits);
         });
     });
 });
