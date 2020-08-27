@@ -32,7 +32,8 @@ app.get("/getUnits", (req, res) => {
             propType: "property",
           },
           force: 1,
-          flags: 4194561,
+          // flags used 4194304 256 1 8192 1048576 4096
+          flags: 5255425,
           from: 0,
           to: 0,
         })
@@ -45,16 +46,51 @@ app.get("/getUnits", (req, res) => {
           { headers: searchItems.getHeaders() }
         )
         .then((itemResponse) => {
-          let allUnits = [];
-          res.json(itemResponse.data);
-          //   for (let i = 0; i < itemResponse.data.items.length; i++) {
-          //     allUnits.push({
-          //       [i]: {
-          //         device_id: itemResponse.data.items[i].uid,
-          //       },
-          //     });
-          //   }
-          //   console.log(allUnits);
+          let allUnits = itemResponse.data.items;
+          let organizedData = [];
+          allUnits.map((unit) => {
+            let unixTime = Math.round(new Date().getTime() / 1000);
+
+            let unitDetails = {};
+            unitDetails.device_id = unit.uid;
+
+            unitDetails.gps_latitude = unit.pos ? unit.pos["x"] : 0;
+            unitDetails.gps_longitude = unit.pos ? unit.pos["y"] : 0;
+            unitDetails.gps_signal = unit.pos ? unit.pos["sc"] : 0;
+            unitDetails.mileage = unit.cnm;
+            if (unit.sens) {
+              let arrayKeys = Object.keys(unit.sens);
+              arrayKeys.map((key) => {
+                let sensors = unit.sens[key];
+
+                if (sensors) {
+                  if (sensors.tbl) {
+                    if (sensors.tbl[0]) {
+                      let multiplier = sensors.tbl[0].a;
+                      let metrics = sensors.m;
+                      if (unit.prms) {
+                        if (unit.prms.can_fls) {
+                          if (unit.prms.can_fls.v) {
+                            let sensorValue = unit.prms.can_fls.v;
+                            unitDetails.fuel_level =
+                              sensorValue * multiplier + " " + metrics;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                unitDetails.fuel_level = "Device Type Not Supported";
+              });
+            }
+            unitDetails.direction = unit.pos ? unit.pos["c"] : 0;
+            unitDetails.wheelbased_speed = unit.pos ? unit.pos["s"] : 0;
+            unitDetails.recorded_at = unixTime;
+            organizedData.push(unitDetails);
+          });
+          res.json(organizedData);
+          // console.log(unit.prms);
+          // console.log(organizedData);
         });
     });
 });
@@ -62,5 +98,5 @@ app.get("/getUnits", (req, res) => {
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
-  console.log("server now running at port 3001");
+  console.log(`server now running at port ${PORT}`);
 });
