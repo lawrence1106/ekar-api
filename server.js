@@ -84,7 +84,7 @@ app.get("/getUnits", (req, res) => {
                     }
                   }
                 }
-                unitDetails.fuel_level = "Device Type Not Supported";
+                unitDetails.fuel_level = "No Custom Fuel Sensor Found";
               });
             }
             unitDetails.direction = unit.pos ? unit.pos["c"] : 0;
@@ -172,7 +172,9 @@ app.post("/getUnitInterval", (req, res) => {
                   msg.pos["y"] ? (setMsg.gps_longitude = msg.pos["y"]) : 0;
                   msg.pos["sc"] ? (setMsg.gps_signal = msg.pos["sc"]) : 0;
                   msg.p["odo"] ? (setMsg.mileage = msg.p["odo"]) : 0;
-                  msg.p["can_fls"] ? (setMsg.fuel_level = msg.p["can_fls"]) : 0;
+                  msg.p["can_fls"]
+                    ? (setMsg.fuel_level = msg.p["can_fls"])
+                    : "No Custom Fuel Sensor Found";
                   msg.pos["c"] ? (setMsg.direction = msg.pos["c"]) : 0;
                   msg.p["wheel_speed"]
                     ? (setMsg.wheelbased_speed = msg.p["wheel_speed"])
