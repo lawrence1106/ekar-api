@@ -59,9 +59,9 @@ app.get("/getUnits", (req, res) => {
             let unitDetails = {};
             unitDetails.device_id = unit.uid;
 
-            unitDetails.gps_latitude = unit.pos ? unit.pos["x"] : 0;
-            unitDetails.gps_longitude = unit.pos ? unit.pos["y"] : 0;
-            unitDetails.gps_signal = unit.pos ? unit.pos["sc"] : 0;
+            unitDetails.gps_latitude = unit.pos ? unit.pos["x"] : "N/A";
+            unitDetails.gps_longitude = unit.pos ? unit.pos["y"] : "N/A";
+            unitDetails.gps_signal = unit.pos ? unit.pos["sc"] : "N/A";
             unitDetails.mileage = unit.cnm;
             if (unit.sens) {
               let arrayKeys = Object.keys(unit.sens);
@@ -88,9 +88,9 @@ app.get("/getUnits", (req, res) => {
                 unitDetails.fuel_level = "No Custom Fuel Sensor Found";
               });
             }
-            unitDetails.direction = unit.pos ? unit.pos["c"] : 0;
-            unitDetails.wheelbased_speed = unit.pos ? unit.pos["s"] : 0;
-            unitDetails.recorded_at = unit.pos ? unit.pos["t"] : 0;
+            unitDetails.direction = unit.pos ? unit.pos["c"] : "N/A";
+            unitDetails.wheelbased_speed = unit.pos ? unit.pos["s"] : "N/A";
+            unitDetails.recorded_at = unit.pos ? unit.pos["t"] : "N/A";
             organizedData.push(unitDetails);
           });
           res.json(organizedData);
@@ -169,18 +169,18 @@ app.post("/getUnitInterval", (req, res) => {
                 let unitMessages = msgResponse.data.messages;
                 unitMessages.map((msg) => {
                   let setMsg = {};
-                  msg.pos["x"] ? (setMsg.gps_latitude = msg.pos["x"]) : 0;
-                  msg.pos["y"] ? (setMsg.gps_longitude = msg.pos["y"]) : 0;
-                  msg.pos["sc"] ? (setMsg.gps_signal = msg.pos["sc"]) : 0;
-                  msg.p["odo"] ? (setMsg.mileage = msg.p["odo"]) : 0;
+                  msg.pos["x"] ? (setMsg.gps_latitude = msg.pos["x"]) : "N/A";
+                  msg.pos["y"] ? (setMsg.gps_longitude = msg.pos["y"]) : "N/A";
+                  msg.pos["sc"] ? (setMsg.gps_signal = msg.pos["sc"]) : "N/A";
+                  msg.p["odo"] ? (setMsg.mileage = msg.p["odo"]) : "N/A";
                   msg.p["can_fls"]
                     ? (setMsg.fuel_level = msg.p["can_fls"])
                     : "No Custom Fuel Sensor Found";
-                  msg.pos["c"] ? (setMsg.direction = msg.pos["c"]) : 0;
+                  msg.pos["c"] ? (setMsg.direction = msg.pos["c"]) : "N/A";
                   msg.p["wheel_speed"]
                     ? (setMsg.wheelbased_speed = msg.p["wheel_speed"])
-                    : 0;
-                  msg["t"] ? (setMsg.recorded_at = msg["t"]) : 0;
+                    : "N/A";
+                  msg["t"] ? (setMsg.recorded_at = msg["t"]) : "N/A";
                   organizedMsgs.push(setMsg);
                 });
                 res.json(organizedMsgs);
