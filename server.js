@@ -12,7 +12,9 @@ app.use(bodyParser.json());
 const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
 const token = process.env.WIALON_TOKEN;
 app.get("/", (req, res) => {
-  res.send("<h1>Working Routes</h1> <br><h4>Get Units: '/getUnits'</h4>");
+  res.send(
+    "<h1>Working Routes</h1> <br><h4>Get Units: '/getUnits'</h4><br><h4>Get Unit Interval: '/getUnitInterval'</h4><p>POST Request</p><p>Query Parameters:</p><p>device_id</p><p>start_time</p><p>end_time</p>"
+  );
 });
 
 app.get("/getUnits", (req, res) => {
@@ -90,16 +92,16 @@ app.get("/getUnits", (req, res) => {
             unitDetails.recorded_at = unit.pos ? unit.pos["t"] : 0;
             organizedData.push(unitDetails);
           });
-          res.json(itemResponse.data.items);
+          res.json(organizedData);
         });
     });
 });
 
-app.get("/getUnitInterval", (req, res) => {
+app.post("/getUnitInterval", (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  let device_id = "867459040868176";
-  let start_time = "1598873119";
-  let end_time = "1598883119";
+  let device_id = req.body.device_id;
+  let start_time = req.body.start_time;
+  let end_time = req.body.end_time;
 
   let formData = new FormData();
   formData.append("params", JSON.stringify({ token: token }));
@@ -162,7 +164,23 @@ app.get("/getUnitInterval", (req, res) => {
                 { headers: getItem.getHeaders() }
               )
               .then((msgResponse) => {
-                res.json(msgResponse.data.messages);
+                let organizedMsgs = [];
+                let unitMessages = msgResponse.data.messages;
+                unitMessages.map((msg) => {
+                  let setMsg = {};
+                  msg.pos["x"] ? (setMsg.gps_latitude = msg.pos["x"]) : 0;
+                  msg.pos["y"] ? (setMsg.gps_longitude = msg.pos["y"]) : 0;
+                  msg.pos["sc"] ? (setMsg.gps_signal = msg.pos["sc"]) : 0;
+                  msg.p["odo"] ? (setMsg.mileage = msg.p["odo"]) : 0;
+                  msg.p["can_fls"] ? (setMsg.fuel_level = msg.p["can_fls"]) : 0;
+                  msg.pos["c"] ? (setMsg.direction = msg.pos["c"]) : 0;
+                  msg.p["wheel_speed"]
+                    ? (setMsg.wheelbased_speed = msg.p["wheel_speed"])
+                    : 0;
+                  msg["t"] ? (setMsg.recorded_at = msg["t"]) : 0;
+                  organizedMsgs.push(setMsg);
+                });
+                res.json(organizedMsgs);
               });
           }
         });
