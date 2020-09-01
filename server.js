@@ -13,7 +13,8 @@ const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
 const token = process.env.WIALON_TOKEN;
 app.get("/", (req, res) => {
   res.send(
-    "<h1>Working Routes</h1> <br><h4>Get Units: '/getUnits'</h4><br><h4>Get Unit Interval: '/getUnitInterval'</h4><p>POST Request</p><p>Query Parameters:</p><p>device_id</p><p>start_time</p><p>end_time</p>"
+    "<h1>Working Routes</h1> <br><h4>Get Units: '/getUnits'</h4><br><h4>Get Unit Interval: '/getUnitInterval'</h4><p>POST Request</p><p>Query Parameters:</p><p>device_id</p><p>start_time</p><p>end_time</p>" +
+      "<p>Note: (fuel_level) A specific custom fuel level sensor must be created for each vehicle in order to get vehicle fuel level data</p>"
   );
 });
 
