@@ -70,29 +70,12 @@ app.get("/getUnits", (req, res) => {
               : (unitDetails.gps_signal = "N/A");
             unitDetails.mileage = unit.cnm;
             if (unit.sens) {
-              let arrayKeys = Object.keys(unit.sens);
-              arrayKeys.map((key) => {
-                let sensors = unit.sens[key];
-
-                if (sensors) {
-                  if (sensors.tbl) {
-                    if (sensors.tbl[0]) {
-                      let multiplier = sensors.tbl[0].a;
-                      let metrics = sensors.m;
-                      if (unit.prms) {
-                        if (unit.prms.can_fls) {
-                          if (unit.prms.can_fls.v) {
-                            let sensorValue = unit.prms.can_fls.v;
-                            unitDetails.fuel_level =
-                              sensorValue * multiplier + " " + metrics;
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-                unitDetails.fuel_level = "No Custom Fuel Sensor Found";
-              });
+              let sensors = unit.sens;
+              let multiplier = sensors["13"].tbl[0]["a"];
+              let sensorValue = unit.prms.can_fls.v;
+              unitDetails.fuel_level = sensorValue * multiplier;
+            } else {
+              unitDetails.fuel_level = "N/A";
             }
             unitDetails.direction = unit.pos
               ? unit.pos["c"]
@@ -193,9 +176,10 @@ app.post("/getUnitInterval", (req, res) => {
                   msg.p["odo"]
                     ? (setMsg.mileage = msg.p["odo"])
                     : (setMsg.mileage = "N/A");
+                  let fuelMultiplier = 0.683333333333;
                   msg.p["can_fls"]
-                    ? (setMsg.fuel_level = msg.p["can_fls"])
-                    : "No Custom Fuel Sensor Found";
+                    ? (setMsg.fuel_level = msg.p.can_fls * fuelMultiplier)
+                    : (setMsg.fuel_level = "N/A");
                   msg.pos["c"]
                     ? (setMsg.direction = msg.pos["c"])
                     : (setMsg.direction = "N/A");
