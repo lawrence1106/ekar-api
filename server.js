@@ -1,4 +1,5 @@
 require("dotenv").config();
+const ampq = require("amqplib").connect("amqp://localhost");
 const express = require("express");
 const axios = require("axios");
 const bodyParser = require("body-parser");
@@ -87,7 +88,34 @@ app.get("/getUnits", (req, res) => {
               : (unitDetails.recorded_at = "N/A");
             organizedData.push(unitDetails);
           });
-          res.json(organizedData);
+
+          let q = "getUnits";
+          ampq
+            .then((conn) => {
+              return conn.createChannel();
+            })
+            .then(async (ch) => {
+              return ch.assertQueue(q).then((ok) => {
+                return ch.sendToQueue(
+                  q,
+                  Buffer.from(JSON.stringify(organizedData))
+                );
+              });
+            });
+          ampq
+            .then((conn) => {
+              return conn.createChannel();
+            })
+            .then(async (ch) => {
+              return ch.assertQueue(q).then((ok) => {
+                return ch.consume(q, (msgq) => {
+                  if (msgq !== null) {
+                    res.json(JSON.parse(msgq.content));
+                    ch.ack(msgq);
+                  }
+                });
+              });
+            });
         });
     });
 });
