@@ -134,7 +134,15 @@ app.post("/getUnitInterval", (req, res) => {
           let unitId = [];
           allUnits.map((unit) => {
             if (unit.uid == device_id) {
-              unitId.push(unit.id);
+              let multiplier;
+              let sensors = Object.keys(unit.sens);
+              sensors.map((index) => {
+                if (unit.sens[index].p == "can_fls") {
+                  multiplier = unit.sens[index].tbl[0].a;
+                }
+              });
+
+              unitId.push({ id: unit.id, calculation: multiplier });
             }
           });
           if (unitId.length === 1) {
@@ -143,7 +151,7 @@ app.post("/getUnitInterval", (req, res) => {
             getItem.append(
               "params",
               JSON.stringify({
-                itemId: unitId[0],
+                itemId: unitId[0].id,
                 timeFrom: start_time,
                 timeTo: end_time,
                 flags: 0x0003,
@@ -175,9 +183,10 @@ app.post("/getUnitInterval", (req, res) => {
                   msg.p["odo"]
                     ? (setMsg.mileage = msg.p["odo"])
                     : (setMsg.mileage = "N/A");
-                  let fuelMultiplier = 0.683333333333;
+                  // let fuelMultiplier = 0.532467532468;
                   msg.p["can_fls"]
-                    ? (setMsg.fuel_level = msg.p.can_fls * fuelMultiplier)
+                    ? (setMsg.fuel_level =
+                        msg.p.can_fls * unitId[0].calculation)
                     : (setMsg.fuel_level = "N/A");
                   msg.pos["c"]
                     ? (setMsg.direction = msg.pos["c"])
