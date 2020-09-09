@@ -4,120 +4,213 @@ const express = require("express");
 const axios = require("axios");
 const bodyParser = require("body-parser");
 const FormData = require("form-data");
-const e = require("express");
 
 const app = express();
 
 app.use(bodyParser.json());
 
 const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
+const updateFlagsUrl =
+  "https://hst-api.wialon.com/wialon/ajax.html?svc=core/update_data_flags";
+const avl_evtsUrl = "https://hst-api.wialon.com/avl_evts";
 const token = process.env.WIALON_TOKEN;
+// main acc token expires after 30 days starting 09-09-2020
+const mainAccToken =
+  "3967d327829405b78f89d0587a6a5b5cA0C5C302CC1007C5EE5F00FB0362D169F875BDF4";
+
 app.get("/", (req, res) => {
   res.send(
     "<br><h4>Get Units: '/getUnits'</h4><p>Get Request</p><br><h4>Get Unit Interval: '/getUnitInterval'</h4><p>POST Request(For Demo)</p><p>Query Parameters:</p><p>device_id</p><p>start_time</p><p>end_time</p>"
   );
 });
 
-app.get("/getUnits", (req, res) => {
+app.get("/avl_events", async (req, res) => {
+  let q = "getUnits";
+
+  let formData = new FormData();
+  formData.append(
+    "params",
+    JSON.stringify({
+      token: token,
+    })
+  );
+
+  let sid = await axios
+    .post(host, formData, { headers: formData.getHeaders() })
+    .then((res) => {
+      return res.data.eid;
+    });
+
+  let flagsData = new FormData();
+
+  flagsData.append(
+    "params",
+    JSON.stringify({
+      spec: [
+        {
+          type: "type",
+          data: "avl_unit",
+          flags: 4194305,
+          mode: 0,
+        },
+      ],
+    })
+  );
+
+  flagsData.append("sid", sid);
+
+  let unitData = await axios
+    .post(updateFlagsUrl, flagsData, {
+      headers: flagsData.getHeaders(),
+    })
+    .then((res) => {
+      return res.data;
+    });
+
+  let request = async (q, sid) => {
+    let evtsData = new FormData();
+
+    evtsData.append("sid", sid);
+
+    let evtSession = await axios
+      .post(avl_evtsUrl, evtsData, { headers: evtsData.getHeaders() })
+      .then((res) => {
+        return res.data;
+      });
+    if (typeof evtSession.events != "undefined") {
+      if (evtSession.events.length > 0) {
+        console.log({
+          recorded_at: evtSession.tm,
+          unitId: evtSession.events[0].i,
+        });
+      }
+    }
+
+    // ampq
+    //   .then((conn) => {
+    //     return conn.createChannel();
+    //   })
+    //   .then(async (ch) => {
+    //     return ch.assertQueue(q).then((ok) => {
+    //       return ch.sendToQueue(q, Buffer.from(JSON.stringify(evtSession)));
+    //     });
+    //   });
+  };
+
+  setInterval(() => {
+    request(q, sid);
+  }, 1000);
+
+  res.json({ uploadInterval: "5s" });
+});
+
+app.get("/getUnits", async (req, res) => {
   let formData = new FormData();
   formData.append("params", JSON.stringify({ token: token }));
 
-  axios
+  let sid = await axios
     .post(host, formData, { headers: formData.getHeaders() })
     .then((response) => {
-      let searchItems = new FormData();
-
-      searchItems.append("sid", response.data.eid);
-      searchItems.append(
-        "params",
-        JSON.stringify({
-          spec: {
-            itemsType: "avl_unit",
-            propName: "sys_name",
-            propValueMask: "*",
-            sortType: "sys_name",
-            propType: "property",
-          },
-          force: 1,
-          // flags used 4194304 256 1 8192 1048576 4096
-          flags: 5255425,
-          from: 0,
-          to: 0,
-        })
-      );
-
-      axios
-        .post(
-          "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items",
-          searchItems,
-          { headers: searchItems.getHeaders() }
-        )
-        .then((itemResponse) => {
-          let allUnits = itemResponse.data.items;
-          let organizedData = [];
-          allUnits.map((unit) => {
-            let unitDetails = {};
-            unitDetails.device_id = unit.uid;
-
-            unitDetails.gps_latitude = unit.pos
-              ? unit.pos["x"]
-              : (unitDetails.gps_latitude = "N/A");
-            unitDetails.gps_longitude = unit.pos
-              ? unit.pos["y"]
-              : (unitDetails.gps_longitude = "N/A");
-            unitDetails.gps_signal = unit.pos
-              ? unit.pos["sc"]
-              : (unitDetails.gps_signal = "N/A");
-            unitDetails.mileage = unit.cnm;
-            if (unit.sens) {
-              let sensors = unit.sens;
-              let multiplier = sensors["13"].tbl[0]["a"];
-              let sensorValue = unit.prms.can_fls.v;
-              unitDetails.fuel_level = sensorValue * multiplier;
-            } else {
-              unitDetails.fuel_level = "N/A";
-            }
-            unitDetails.direction = unit.pos
-              ? unit.pos["c"]
-              : (unitDetails.direction = "N/A");
-            unitDetails.wheelbased_speed = unit.pos
-              ? unit.pos["s"]
-              : (unitDetails.wheelbased_speed = "N/A");
-            unitDetails.recorded_at = unit.pos
-              ? unit.pos["t"]
-              : (unitDetails.recorded_at = "N/A");
-            organizedData.push(unitDetails);
-          });
-
-          let q = "getUnits";
-          ampq
-            .then((conn) => {
-              return conn.createChannel();
-            })
-            .then(async (ch) => {
-              return ch.assertQueue(q).then((ok) => {
-                return ch.sendToQueue(
-                  q,
-                  Buffer.from(JSON.stringify(organizedData))
-                );
-              });
-            });
-          ampq
-            .then((conn) => {
-              return conn.createChannel();
-            })
-            .then(async (ch) => {
-              return ch.assertQueue(q).then((ok) => {
-                return ch.consume(q, (msgq) => {
-                  if (msgq !== null) {
-                    res.json(JSON.parse(msgq.content));
-                    ch.ack(msgq);
-                  }
-                });
-              });
-            });
-        });
+      return response.data.eid;
     });
+
+  let searchItems = new FormData();
+
+  searchItems.append("sid", sid);
+  searchItems.append(
+    "params",
+    JSON.stringify({
+      spec: {
+        itemsType: "avl_unit",
+        propName: "sys_name",
+        propValueMask: "*",
+        sortType: "sys_name",
+        propType: "property",
+      },
+      force: 1,
+      // flags used 4194304 256 1 8192 1048576 4096
+      flags: 5255425,
+      from: 0,
+      to: 0,
+    })
+  );
+  let q = "getUnits";
+
+  let requestData = (q) => {
+    axios
+      .post(
+        "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items",
+        searchItems,
+        { headers: searchItems.getHeaders() }
+      )
+      .then((itemResponse) => {
+        let allUnits = itemResponse.data.items;
+        let organizedData = [];
+        allUnits.map((unit) => {
+          let unitDetails = {};
+          unitDetails.device_id = unit.uid;
+
+          unitDetails.gps_latitude = unit.pos
+            ? unit.pos["x"]
+            : (unitDetails.gps_latitude = "N/A");
+          unitDetails.gps_longitude = unit.pos
+            ? unit.pos["y"]
+            : (unitDetails.gps_longitude = "N/A");
+          unitDetails.gps_signal = unit.pos
+            ? unit.pos["sc"]
+            : (unitDetails.gps_signal = "N/A");
+          unitDetails.mileage = unit.cnm;
+          let sensorValue;
+          if (unit.prms) {
+            if (unit.prms.can_fls) {
+              if (unit.prms.can_fls.v) {
+                sensorValue = unit.prms.can_fls.v;
+              }
+            }
+          }
+          if (unit.sens) {
+            if (unit.sens["13"]) {
+              if (unit.sens["13"].tbl) {
+                if (unit.sens["13"].tbl[0]) {
+                  if (unit.sens["13"].tbl[0]["a"]) {
+                    let multiplier = unit.sens["13"].tbl[0]["a"];
+                    unitDetails.fuel_level = sensorValue * multiplier;
+                  }
+                }
+              }
+            }
+          }
+          unitDetails.direction = unit.pos
+            ? unit.pos["c"]
+            : (unitDetails.direction = "N/A");
+          unitDetails.wheelbased_speed = unit.pos
+            ? unit.pos["s"]
+            : (unitDetails.wheelbased_speed = "N/A");
+          unitDetails.recorded_at = unit.pos
+            ? unit.pos["t"]
+            : (unitDetails.recorded_at = "N/A");
+          organizedData.push(unitDetails);
+        });
+        ampq
+          .then((conn) => {
+            return conn.createChannel();
+          })
+          .then(async (ch) => {
+            return ch.assertQueue(q).then((ok) => {
+              return ch.sendToQueue(
+                q,
+                Buffer.from(JSON.stringify(organizedData))
+              );
+            });
+          });
+      });
+    console.log("message sent!");
+  };
+
+  setInterval(() => {
+    requestData(q);
+  }, 5000);
+  res.json({ uploadInterval: "5s" });
 });
 
 app.post("/getUnitInterval", (req, res) => {
@@ -211,7 +304,6 @@ app.post("/getUnitInterval", (req, res) => {
                   msg.p["odo"]
                     ? (setMsg.mileage = msg.p["odo"])
                     : (setMsg.mileage = "N/A");
-                  // let fuelMultiplier = 0.532467532468;
                   msg.p["can_fls"]
                     ? (setMsg.fuel_level =
                         msg.p.can_fls * unitId[0].calculation)
