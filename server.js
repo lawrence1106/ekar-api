@@ -17,6 +17,7 @@ const token = process.env.WIALON_TOKEN;
 // main acc token expires after 30 days starting 09-09-2020
 const mainAccToken =
   "3967d327829405b78f89d0587a6a5b5cA0C5C302CC1007C5EE5F00FB0362D169F875BDF4";
+var msgQData = new Object();
 
 app.get("/", (req, res) => {
   res.send(
@@ -24,6 +25,7 @@ app.get("/", (req, res) => {
   );
 });
 
+// mq
 app.get("/avl_events", async (req, res) => {
   let q = "getUnits";
 
@@ -50,7 +52,7 @@ app.get("/avl_events", async (req, res) => {
         {
           type: "type",
           data: "avl_unit",
-          flags: 4194305,
+          flags: 5255425,
           mode: 0,
         },
       ],
@@ -64,49 +66,46 @@ app.get("/avl_events", async (req, res) => {
       headers: flagsData.getHeaders(),
     })
     .then((res) => {
-      return res.data;
-    });
+      let data = res.data;
+      data.map((details) => {
+        let unit = {};
 
-  let request = async (q, sid) => {
-    let evtsData = new FormData();
+        unit.device_id = details.d.uid;
+        unit.gps_latitude = details.d.pos ? details.d.pos.x : "";
+        unit.gps_longitude = details.d.pos ? details.d.pos.y : "";
+        unit.gps_signal = details.d.pos ? details.d.pos.sc : "";
+        unit.mileage = details.d.cnm ? details.d.cnm : "";
+        if (details.d.prms) {
+          if (details.d.prms.can_fls) {
+            unit.fuel_level = details.d.prms.can_fls.v;
+          } else {
+            unit.fuel_level = "No Can fls";
+          }
+        } else {
+          unit.fuel_level = "No Data";
+        }
+        unit.direction = details.d.pos ? details.d.pos.c : "";
+        unit.wheelbased_speed = details.prms ? details.prms.wheel_speed.v : "";
+        unit.recorded_at = details.d.pos ? details.d.pos.t : "";
 
-    evtsData.append("sid", sid);
-
-    let evtSession = await axios
-      .post(avl_evtsUrl, evtsData, { headers: evtsData.getHeaders() })
-      .then((res) => {
-        return res.data;
+        msgQData[details.i] = unit;
       });
-    if (typeof evtSession.events != "undefined") {
-      if (evtSession.events.length > 0) {
-        console.log({
-          recorded_at: evtSession.tm,
-          unitId: evtSession.events[0].i,
-        });
-      }
-    }
-
-    // ampq
-    //   .then((conn) => {
-    //     return conn.createChannel();
-    //   })
-    //   .then(async (ch) => {
-    //     return ch.assertQueue(q).then((ok) => {
-    //       return ch.sendToQueue(q, Buffer.from(JSON.stringify(evtSession)));
-    //     });
-    //   });
-  };
+      console.log(msgQData);
+    });
 
   setInterval(() => {
     request(q, sid);
-  }, 1000);
+  }, 5000);
 
-  res.json({ uploadInterval: "5s" });
+  res.json(msgQData);
 });
 
+// api done
 app.get("/getUnits", async (req, res) => {
+  let q = "getUnits";
+
   let formData = new FormData();
-  formData.append("params", JSON.stringify({ token: token }));
+  formData.append("params", JSON.stringify({ token: mainAccToken }));
 
   let sid = await axios
     .post(host, formData, { headers: formData.getHeaders() })
@@ -134,85 +133,70 @@ app.get("/getUnits", async (req, res) => {
       to: 0,
     })
   );
-  let q = "getUnits";
 
-  let requestData = (q) => {
-    axios
-      .post(
-        "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items",
-        searchItems,
-        { headers: searchItems.getHeaders() }
-      )
-      .then((itemResponse) => {
-        let allUnits = itemResponse.data.items;
-        let organizedData = [];
-        allUnits.map((unit) => {
-          let unitDetails = {};
-          unitDetails.device_id = unit.uid;
+  let data = await axios
+    .post(
+      "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items",
+      searchItems,
+      { headers: searchItems.getHeaders() }
+    )
+    .then((itemResponse) => {
+      let allUnits = itemResponse.data.items;
+      let organizedData = [];
+      allUnits.map((unit) => {
+        let unitDetails = {};
+        unitDetails.device_id = unit.uid;
 
-          unitDetails.gps_latitude = unit.pos
-            ? unit.pos["x"]
-            : (unitDetails.gps_latitude = "N/A");
-          unitDetails.gps_longitude = unit.pos
-            ? unit.pos["y"]
-            : (unitDetails.gps_longitude = "N/A");
-          unitDetails.gps_signal = unit.pos
-            ? unit.pos["sc"]
-            : (unitDetails.gps_signal = "N/A");
-          unitDetails.mileage = unit.cnm;
-          let sensorValue;
-          if (unit.prms) {
-            if (unit.prms.can_fls) {
-              if (unit.prms.can_fls.v) {
-                sensorValue = unit.prms.can_fls.v;
-              }
+        unitDetails.gps_latitude = unit.pos
+          ? unit.pos["x"]
+          : (unitDetails.gps_latitude = "N/A");
+        unitDetails.gps_longitude = unit.pos
+          ? unit.pos["y"]
+          : (unitDetails.gps_longitude = "N/A");
+        unitDetails.gps_signal = unit.pos
+          ? unit.pos["sc"]
+          : (unitDetails.gps_signal = "N/A");
+        unitDetails.mileage = unit.cnm;
+        let sensorValue;
+        if (unit.prms) {
+          if (unit.prms.can_fls) {
+            if (unit.prms.can_fls.v) {
+              sensorValue = unit.prms.can_fls.v;
             }
           }
-          if (unit.sens) {
-            if (unit.sens["13"]) {
-              if (unit.sens["13"].tbl) {
-                if (unit.sens["13"].tbl[0]) {
-                  if (unit.sens["13"].tbl[0]["a"]) {
-                    let multiplier = unit.sens["13"].tbl[0]["a"];
-                    unitDetails.fuel_level = sensorValue * multiplier;
-                  }
+        }
+        if (unit.sens) {
+          if (unit.sens["13"]) {
+            if (unit.sens["13"].tbl) {
+              if (unit.sens["13"].tbl[0]) {
+                if (unit.sens["13"].tbl[0]["a"]) {
+                  let multiplier = unit.sens["13"].tbl[0]["a"];
+                  unitDetails.fuel_level = sensorValue * multiplier;
+                } else {
+                  unitDetails.fuel_level = "Device not Supported";
                 }
               }
             }
           }
-          unitDetails.direction = unit.pos
-            ? unit.pos["c"]
-            : (unitDetails.direction = "N/A");
-          unitDetails.wheelbased_speed = unit.pos
-            ? unit.pos["s"]
-            : (unitDetails.wheelbased_speed = "N/A");
-          unitDetails.recorded_at = unit.pos
-            ? unit.pos["t"]
-            : (unitDetails.recorded_at = "N/A");
-          organizedData.push(unitDetails);
-        });
-        ampq
-          .then((conn) => {
-            return conn.createChannel();
-          })
-          .then(async (ch) => {
-            return ch.assertQueue(q).then((ok) => {
-              return ch.sendToQueue(
-                q,
-                Buffer.from(JSON.stringify(organizedData))
-              );
-            });
-          });
+        }
+        unitDetails.direction = unit.pos
+          ? unit.pos["c"]
+          : (unitDetails.direction = "N/A");
+        unitDetails.wheelbased_speed = unit.pos
+          ? unit.pos["s"]
+          : (unitDetails.wheelbased_speed = "N/A");
+        unitDetails.recorded_at = unit.pos
+          ? unit.pos["t"]
+          : (unitDetails.recorded_at = "N/A");
+        organizedData.push(unitDetails);
       });
-    console.log("message sent!");
-  };
+      return allUnits;
+    });
 
-  setInterval(() => {
-    requestData(q);
-  }, 5000);
-  res.json({ uploadInterval: "5s" });
+  res.json(data);
 });
 
+// api done
 app.post("/getUnitInterval", (req, res) => {
   res.setHeader("Content-Type", "application/json");
   let device_id = req.body.device_id;
@@ -331,3 +315,61 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`server now running at port ${PORT}`);
 });
+
+// client requirements
+// Post Endpoint: /events parameters:{on off lock unlock}
+// Post mq: endpoint/getPosition parameter:{ id/imei } response:{format nila}
+
+// EKar requirements
+// Post Endpoint: /events parameters:{on off lock unlock}
+// Post endpoint: /getUnits response:{format nila}
+// Post endpoint: /getUnitInterval parameter:{ id/imei } response:{format nila}
+// Post mq: endpoint/getPosition parameter:{ id/imei } response:{format nila}
+// Post mq: endpoint/getPositionAllVehicles parameter:{ avl_units } response:{format nila}
+
+// ats
+// avl events use =>
+let request = async (q, sid) => {
+  let evtsData = new FormData();
+
+  evtsData.append("sid", sid);
+
+  let evtSession = await axios
+    .post(avl_evtsUrl, evtsData, { headers: evtsData.getHeaders() })
+    .then((res) => {
+      return res.data;
+    });
+  if (typeof evtSession.events != "undefined") {
+    if (evtSession.events.length > 0) {
+      // let event = { unitId: event };
+      let event = evtSession.events;
+      // event.map((e) => {
+      //   let id = e.i;
+      //   let data = e.d;
+      //   let index = msgQData.find((find) => {
+      //     find.
+      //   })
+      // });
+      console.log(event);
+      // console.log(event);
+      // event.map((events) => {
+      //   console.log({
+      //     timestamp: evtSession.tm,
+      //     unitID: events.i,
+      //     data: JSON.stringify(events.d, " ", 1),
+      //   });
+      // });
+
+      // ampq
+      //   .then((conn) => {
+      //     return conn.createChannel();
+      //   })
+      //   .then(async (ch) => {
+      //     return ch.assertQueue(q).then((ok) => {
+      //       return ch.sendToQueue(q, Buffer.from(JSON.stringify(event)));
+      //     });
+      //   })
+      //   .catch(console.warn);
+    }
+  }
+};
