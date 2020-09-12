@@ -143,18 +143,25 @@ let getEvent = async (q, sid) => {
           }
         });
       });
+      let sendToQ = [];
+      let formattedData = Object.values(msgQData);
+
+      formattedData.map((unitDetails) => {
+        sendToQ.push(unitDetails);
+      });
+
       ampq
         .then((conn) => {
           return conn.createChannel();
         })
         .then(async (ch) => {
           return ch.assertQueue(q).then((ok) => {
-            return ch.sendToQueue(q, Buffer.from(JSON.stringify(msgQData)));
+            return ch.sendToQueue(q, Buffer.from(JSON.stringify(sendToQ)));
           });
         })
         .catch(console.warn);
       console.log({
-        message: msgQData,
+        message: sendToQ,
         status: "Incoming Event Sent to Queue! " + Date(),
       });
     }
