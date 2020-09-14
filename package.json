@@ -2,9 +2,10 @@
   "name": "ekar",
   "version": "1.0.0",
   "description": "ekar remote api",
-  "main": "server.js",
+  "main": "qPublisher.js",
   "scripts": {
-    "start": "nodemon server.js"
+    "start": "nodemon qPublisher.js",
+    "consume": "nodemon qConsumer.js"
   },
   "author": "ats",
   "license": "ISC",
