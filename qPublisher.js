@@ -35,7 +35,7 @@ let createRefreshsession = async () => {
   formData.append(
     "params",
     JSON.stringify({
-      token: token,
+      token: mainAccToken,
     })
   );
 
@@ -50,7 +50,7 @@ let createRefreshsession = async () => {
 
   setInterval(() => {
     getEvent(q, sid);
-  }, 1500);
+  }, 1000);
 };
 
 let setUserFlags = async (sid) => {

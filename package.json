@@ -4,8 +4,8 @@
   "description": "ekar remote api",
   "main": "qPublisher.js",
   "scripts": {
-    "start": "nodemon qPublisher.js",
-    "consume": "nodemon qConsumer.js"
+    "start": "node qPublisher.js",
+    "endpoints": "nodemon atsEndpoints.js"
   },
   "author": "ats",
   "license": "ISC",
