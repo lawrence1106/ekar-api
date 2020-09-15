@@ -2,164 +2,170 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const amqp = require("amqplib");
-const axios = require("axios");
 const bodyParser = require("body-parser");
-const FormData = require("form-data");
-
 app.use(bodyParser.json());
 
-const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
-const commandURL =
-  "https://hst-api.wialon.com/wialon/ajax.html?svc=unit/exec_cmd";
 const token = process.env.WIALON_TOKEN;
-const mainAccToken =
-  "3967d327829405b78f89d0587a6a5b5cA0C5C302CC1007C5EE5F00FB0362D169F875BDF4";
-// expires after 1 hour
-const commandToken =
-  "404064b49a25b1e485bf0b60045376b9D0B9A45A2FEF13E46EDCC5160A27DB1638AC5B45";
-const PORT = process.env.PORT || 8081;
+const appKey = process.env.APP_KEY;
 
-app.post("/commands", async (req, res) => {
+const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
+
+app.post("/services/ekar/commands", isAuth, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   let device_id = req.body.device_id;
-  let command_key, param_key;
+  let command_key = req.body.command_key;
 
-  switch (req.body.command_key) {
-    case 1:
-    case "Lock":
-    case "lock":
-      command_key = "DOOR_LOCK";
-      param_key = 2;
-      break;
-    case 2:
-    case "Unlock":
-    case "unlock":
-      command_key = "DOOR_UNLOCK";
-      param_key = 2;
-      break;
-    case 3:
-    case "Block":
-    case "block":
-      command_key = "IMMOBILIZER_ON";
-      param_key = 1;
-      break;
-    case 4:
-    case "Unblock":
-    case "unblock":
-      command_key = "IMMOBILIZER_OFF";
-      param_key = 1;
-      break;
-    default:
-      return res.json({ ERROR: "INVALID COMMAND" });
-  }
+  await sentQ(device_id, command_key);
+  console.log(`COMMAND SENT TO QUEUE! ${Date()}`);
+});
 
-  let commandData = new FormData();
+app.post("/services/ekar/getUnitInterval", isAuth, async (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  let device_id = req.body.device_id;
+  let start_time = req.body.start_time;
+  let end_time = req.body.end_time;
 
-  commandData.append("sid", await getSid());
-  commandData.append(
-    "params",
-    JSON.stringify({
-      itemId: device_id,
-      commandName: command_key,
-      linkType: "",
-      param: param_key,
-      timeout: 5,
-      flags: 0,
-    })
-  );
+  let formData = new FormData();
+  formData.append("params", JSON.stringify({ token: token }));
 
+  await axios
+    .post(host, formData, { headers: formData.getHeaders() })
+    .then(async (response) => {
+      let searchItem = new FormData();
+      searchItem.append("sid", response.data.eid);
+      searchItem.append(
+        "params",
+        JSON.stringify({
+          spec: {
+            itemsType: "avl_unit",
+            propName: "sys_name",
+            propValueMask: "*",
+            sortType: "sys_name",
+            propType: "property",
+          },
+          force: 1,
+          // flags used 4194304 256 1 8192 1048576 4096
+          flags: 5255425,
+          from: 0,
+          to: 0,
+        })
+      );
+      await axios
+        .post(
+          "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items",
+          searchItem,
+          { headers: searchItem.getHeaders() }
+        )
+        .then(async (itemResponse) => {
+          let allUnits = itemResponse.data.items;
+          let unitId = [];
+          allUnits.map((unit) => {
+            if (unit.uid == device_id) {
+              let multiplier;
+              let sensors = Object.keys(unit.sens);
+              sensors.map((index) => {
+                if (unit.sens[index].p == "can_fls") {
+                  multiplier = unit.sens[index].tbl[0].a;
+                }
+              });
+
+              unitId.push({ id: unit.id, calculation: multiplier });
+            }
+          });
+          if (unitId.length === 1) {
+            let getItem = new FormData();
+            getItem.append("sid", response.data.eid);
+            getItem.append(
+              "params",
+              JSON.stringify({
+                itemId: unitId[0].id,
+                timeFrom: start_time,
+                timeTo: end_time,
+                flags: 0x0003,
+                flagsMask: 0xff03,
+                loadCount: 0xffffffff,
+              })
+            );
+
+            await axios
+              .post(
+                "https://hst-api.wialon.com/wialon/ajax.html?svc=messages/load_interval",
+                getItem,
+                { headers: getItem.getHeaders() }
+              )
+              .then((msgResponse) => {
+                let organizedMsgs = [];
+                let unitMessages = msgResponse.data.messages;
+                unitMessages.map((msg) => {
+                  let setMsg = {};
+                  msg.pos["x"]
+                    ? (setMsg.gps_latitude = msg.pos["x"])
+                    : (setMsg.gps_latitude = "N/A");
+                  msg.pos["y"]
+                    ? (setMsg.gps_longitude = msg.pos["y"])
+                    : (setMsg.gps_longitude = "N/A");
+                  msg.pos["sc"]
+                    ? (setMsg.gps_signal = msg.pos["sc"])
+                    : (setMsg.gps_signal = "N/A");
+                  msg.p["odo"]
+                    ? (setMsg.mileage = msg.p["odo"])
+                    : (setMsg.mileage = "N/A");
+                  msg.p["can_fls"]
+                    ? (setMsg.fuel_level =
+                        msg.p.can_fls * unitId[0].calculation)
+                    : (setMsg.fuel_level = "N/A");
+                  msg.pos["c"]
+                    ? (setMsg.direction = msg.pos["c"])
+                    : (setMsg.direction = "N/A");
+                  msg.p["wheel_speed"]
+                    ? (setMsg.wheelbased_speed = msg.p["wheel_speed"])
+                    : (setMsg.wheelbased_speed = "N/A");
+                  msg["t"]
+                    ? (setMsg.recorded_at = msg["t"])
+                    : (setMsg.recorded_at = "N/A");
+                  organizedMsgs.push(setMsg);
+                });
+                res.json(organizedMsgs);
+              });
+          }
+        });
+    });
+});
+
+// middlewares
+function isAuth(req, res, next) {
+  let authorization = req.headers.authorization.split("Bearer ")[1];
+  if (!authorization) return res.sendStatus(404);
+  if (authorization !== appKey) return res.sendStatus(401);
   try {
-    axios
-      .post(commandURL, commandData, { headers: commandData.getHeaders() })
-      .then((res) => {
-        console.log(res);
-      });
+    req.headers.authorization = "Authorized";
+    console.log("AppKey validated! User is authorized!");
+    next();
   } catch (err) {
     console.error(err);
   }
-});
+}
 
-app.listen(PORT, async () => {
-  console.log(`SERVER HAS STARTED AT PORT ${PORT}`);
-  await getItems();
+const PORT = process.env.PORT || 8082;
+
+app.listen(PORT, () => {
+  console.log(`SERVET STARTED AT PORT ${PORT}`);
 });
 
 // functions
-const getSid = async () => {
-  let formData = new FormData();
-  formData.append(
-    "params",
-    JSON.stringify({
-      token: commandToken,
-    })
-  );
-
-  let sid = await axios
-    .post(host, formData, { headers: formData.getHeaders() })
-    .then((res) => {
-      return res.data.eid;
-    });
-  return sid;
-};
-
-const getItems = async () => {
-  let searchItems = new FormData();
-
-  searchItems.append("sid", await getSid());
-  searchItems.append(
-    "params",
-    JSON.stringify({
-      spec: {
-        itemsType: "avl_unit",
-        propName: "sys_name",
-        propValueMask: "*",
-        sortType: "sys_name",
-        propType: "property",
-      },
-      force: 1,
-      flags: 524288 + 1 + 256,
-      from: 0,
-      to: 0,
-    })
-  );
-
-  let data = await axios
-    .post(
-      "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items",
-      searchItems,
-      { headers: searchItems.getHeaders() }
-    )
-    .then((res) => {
-      return res.data;
-    });
-  let units = data.items;
-  units.map((unit) => {
-    if (unit.id == 21762597) {
-      console.log(unit);
-    }
-  });
-};
-
-const checkAccessRights = async () => {
-  let formData = new FormData();
-
-  formData.append("sid", await getSid());
-  formData.append(
-    "params",
-    JSON.stringify({
-      items: [19829509],
-      accessFlags: 0x0001000000,
-      serviceName: "",
-    })
-  );
-
-  await axios
-    .get(
-      "https://hst-api.wialon.com/wialon/ajax.html?svc=core/check_items_billing",
-      formData,
-      { headers: formData.getHeaders() }
-    )
-    .then((res) => {
-      console.log(res);
-    });
+const q = "commands";
+const sentQ = async (device_id, command_key) => {
+  try {
+    const connection = await amqp.connect("amqp://localhost");
+    const channel = await connection.createChannel();
+    const result = await channel.assertQueue(q);
+    channel.sendToQueue(
+      q,
+      Buffer.from(
+        JSON.stringify({ device_id: device_id, command_key: command_key })
+      )
+    );
+  } catch (err) {
+    console.error(err);
+  }
 };

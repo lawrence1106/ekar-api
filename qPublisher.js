@@ -165,80 +165,76 @@ let getEvent = async (q, sid) => {
       .then((res) => {
         return res.data;
       });
-    if (typeof evtSession.events != "undefined") {
-      if (evtSession.events.length > 0) {
-        let event = evtSession.events; // Array
-        event.map(async (evtData) => {
-          let eventID = evtData.i;
-          if (eventID == ekarId) {
-            if (evtData.d?.p?.action == "update_access") {
-              await resetUnitFlags(sid);
-              msgQData = {};
-              setUnitFlags(sid);
-            }
-          } else {
-            if (evtData.d.odometer) {
-              if (evtData.d.odometer.v) {
-                msgQData[eventID].mileage = evtData.d.odometer.v;
-              }
-            }
-            if (evtData.d.p) {
-              if (evtData.d.p.fuel_lvl2) {
-                msgQData[eventID].fuel_level = evtData.d.p.fuel_lvl2;
-              }
-            }
-            if (evtData.d.p) {
-              if (evtData.d.p.wheel_speed) {
-                msgQData[eventID].wheelbased_speed = evtData.d.p.wheel_speed;
-              }
-            }
-            if (evtData.d.pos) {
-              if (evtData.d.pos.x) {
-                msgQData[eventID].gps_latitude = evtData.d.pos.x;
-              }
-              if (evtData.d.pos.y) {
-                msgQData[eventID].gps_longitude = evtData.d.pos.y;
-              }
-              if (evtData.d.pos.sc) {
-                msgQData[eventID].gps_signal = evtData.d.pos.sc;
-              }
-              if (evtData.d.pos.c) {
-                msgQData[eventID].direction = evtData.d.pos.c;
-              }
-              msgQData[eventID].recorded_at = evtSession.tm;
+
+    if (evtSession.events?.length > 0) {
+      let event = evtSession.events; // Array
+      event.map(async (evtData) => {
+        let eventID = evtData.i;
+        if (eventID == ekarId) {
+          if (evtData.d?.p?.action == "update_access") {
+            await resetUnitFlags(sid);
+            msgQData = {};
+            setUnitFlags(sid);
+          }
+        } else {
+          if (evtData.d.odometer) {
+            if (evtData.d.odometer.v) {
+              msgQData[eventID].mileage = evtData.d.odometer.v;
             }
           }
-        });
-        let sendToQ = [];
-        let formattedData = Object.values(msgQData);
-        formattedData.map((unitDetails) => {
-          sendToQ.push(unitDetails);
-        });
-        amqp
-          .then((conn) => {
-            return conn.createChannel();
-          })
-          .then(async (ch) => {
-            try {
-              return ch.assertQueue(q).then((ok) => {
-                if (sendToQ.length > 0) {
-                  return ch.sendToQueue(
-                    q,
-                    Buffer.from(JSON.stringify(sendToQ))
-                  );
-                }
-              });
-            } catch (err) {
-              console.error(err);
+          if (evtData.d.p) {
+            if (evtData.d.p.fuel_lvl2) {
+              msgQData[eventID].fuel_level = evtData.d.p.fuel_lvl2;
             }
-          })
-          .catch(console.warn);
-        if (sendToQ.length > 0) {
-          console.log({
-            message: sendToQ,
-            status: "Event Sent to Queue! " + Date(),
-          });
+          }
+          if (evtData.d.p) {
+            if (evtData.d.p.wheel_speed) {
+              msgQData[eventID].wheelbased_speed = evtData.d.p.wheel_speed;
+            }
+          }
+          if (evtData.d.pos) {
+            if (evtData.d.pos.x) {
+              msgQData[eventID].gps_latitude = evtData.d.pos.x;
+            }
+            if (evtData.d.pos.y) {
+              msgQData[eventID].gps_longitude = evtData.d.pos.y;
+            }
+            if (evtData.d.pos.sc) {
+              msgQData[eventID].gps_signal = evtData.d.pos.sc;
+            }
+            if (evtData.d.pos.c) {
+              msgQData[eventID].direction = evtData.d.pos.c;
+            }
+            msgQData[eventID].recorded_at = evtSession.tm;
+          }
         }
+      });
+      let sendToQ = [];
+      let formattedData = Object.values(msgQData);
+      formattedData.map((unitDetails) => {
+        sendToQ.push(unitDetails);
+      });
+      amqp
+        .then((conn) => {
+          return conn.createChannel();
+        })
+        .then(async (ch) => {
+          try {
+            return ch.assertQueue(q).then((ok) => {
+              if (sendToQ.length > 0) {
+                return ch.sendToQueue(q, Buffer.from(JSON.stringify(sendToQ)));
+              }
+            });
+          } catch (err) {
+            console.error(err);
+          }
+        })
+        .catch(console.warn);
+      if (sendToQ.length > 0) {
+        console.log({
+          message: sendToQ,
+          status: "Event Sent to Queue! " + Date(),
+        });
       }
     }
   } catch (err) {
