@@ -22,7 +22,7 @@ app.listen(PORT, async () => {
 const q = "commands";
 const consumeMsg = async () => {
   try {
-    const connection = await amqp.connect("amqp://localhost");
+    const connection = await amqp.connect("amqp://ekar:11223344@localhost");
     const channel = await connection.createChannel();
     const result = await channel.assertQueue(q);
     console.log("Consumer script ready, waiting for commands...");
