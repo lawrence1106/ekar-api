@@ -6,7 +6,7 @@ const amqp = require("amqplib").connect("amqp://localhost");
 const express = require("express");
 const axios = require("axios");
 const FormData = require("form-data");
-const ekarId = 21704484;
+const ekarId = process.env.EKAR_ACCOUNT_ID;
 const app = express();
 
 const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
@@ -14,8 +14,6 @@ const updateFlagsUrl =
   "https://hst-api.wialon.com/wialon/ajax.html?svc=core/update_data_flags";
 const avl_evtsUrl = "https://hst-api.wialon.com/avl_evts";
 const token = process.env.WIALON_TOKEN;
-const mainAccToken =
-  "3967d327829405b78f89d0587a6a5b5cA0C5C302CC1007C5EE5F00FB0362D169F875BDF4";
 
 const PORT = process.env.PORT || 8080;
 let msgQData = new Object();
@@ -35,7 +33,7 @@ let createRefreshsession = async () => {
   formData.append(
     "params",
     JSON.stringify({
-      token: mainAccToken,
+      token: token,
     })
   );
 
