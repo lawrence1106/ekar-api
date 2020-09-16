@@ -25,7 +25,7 @@ const consumeMsg = async () => {
     const connection = await amqp.connect("amqp://localhost");
     const channel = await connection.createChannel();
     const result = await channel.assertQueue(q);
-    console.log("Waiting for messages");
+    console.log("Consumer script ready, waiting for commands...");
     channel.consume(q, async (msg) => {
       if (msg !== null) {
         let parsedMessage = JSON.parse(msg.content.toString());
@@ -112,25 +112,21 @@ const getUnitID = async (imei_no) => {
 const execCmd = async (device_id, command_param) => {
   let command_key, param_key;
   switch (command_param) {
-    case 1:
     case "Lock":
     case "lock":
       command_key = "DOOR_LOCK";
       param_key = 2;
       break;
-    case 2:
     case "Unlock":
     case "unlock":
       command_key = "DOOR_UNLOCK";
       param_key = 2;
       break;
-    case 3:
     case "Block":
     case "block":
       command_key = "IMMOBILIZER_ON";
       param_key = 1;
       break;
-    case 4:
     case "Unblock":
     case "unblock":
       command_key = "IMMOBILIZER_OFF";
