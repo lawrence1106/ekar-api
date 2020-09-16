@@ -156,7 +156,7 @@ app.listen(PORT, () => {
 const q = "commands";
 const sentQ = async (device_id, command_key) => {
   try {
-    const connection = await amqp.connect("amqp://localhost");
+    const connection = await amqp.connect("amqp://ekar:11223344@localhost");
     const channel = await connection.createChannel();
     const result = await channel.assertQueue(q);
     channel.sendToQueue(
