@@ -14,7 +14,17 @@ app.post("/services/ekar/commands", isAuth, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   let device_id = req.body.device_id;
   let command_key = req.body.command_key;
-
+  if (
+    command_key !== "Lock" &&
+    command_key !== "lock" &&
+    command_key !== "Unlock" &&
+    command_key !== "unlock" &&
+    command_key !== "Block" &&
+    command_key !== "block" &&
+    command_key !== "Unblock" &&
+    command_key !== "unblock"
+  )
+    return res.sendStatus(400);
   await sentQ(device_id, command_key);
   console.log(`COMMAND SENT TO QUEUE! ${Date()}`);
 });
