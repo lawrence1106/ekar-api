@@ -12,7 +12,7 @@ const commandURL =
 const searchItemUrl =
   "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items";
 // command token expires after 1 day starting 09-15-2020
-const commandToken = process.env.COMMANT_TOKEN;
+const commandToken = process.env.COMMAND_TOKEN;
 
 app.listen(PORT, async () => {
   console.log(`SERVET STARTED AT PORT ${PORT}`);
