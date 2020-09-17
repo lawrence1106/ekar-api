@@ -4,7 +4,7 @@
   "description": "ekar remote api",
   "main": "qPublisher.js",
   "scripts": {
-    "start": "concurrently \"node atsEndpoints.js\" \"node commandsConsumer.js\""
+    "start": "concurrently \"node atsEndpoints.js\" \"node commandsConsumer.js\" \"node qPublisher.js\""
   },
   "author": "ats",
   "license": "ISC",

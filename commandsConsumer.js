@@ -20,6 +20,7 @@ app.listen(PORT, async () => {
   await consumeMsg();
 });
 
+// functions
 const q = "commands";
 const consumeMsg = async () => {
   try {
@@ -56,7 +57,6 @@ const consumeMsg = async () => {
   }
 };
 
-// functions
 const getSid = async () => {
   let formData = new FormData();
   formData.append(
@@ -134,7 +134,7 @@ const execCmd = async (device_id, command_param) => {
       param_key = 1;
       break;
     default:
-      return res.json({ ERROR: "INVALID COMMAND" });
+      return res.sendStatus(400);
   }
 
   let commandData = new FormData();

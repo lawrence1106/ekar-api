@@ -1,8 +1,5 @@
 require("dotenv").config();
-const amqp = require("amqplib").connect("amqp://localhost");
-// const amqp = require("amqplib").connect(
-//   "amqps://tghbtmwi:UYyNMfLqqaGzxsuTI-8ZfPhA-Q5lPqry@grouse.rmq.cloudamqp.com/tghbtmwi"
-// );
+const amqp = require("amqplib").connect("amqp://ekar:11223344@localhost");
 const express = require("express");
 const axios = require("axios");
 const FormData = require("form-data");

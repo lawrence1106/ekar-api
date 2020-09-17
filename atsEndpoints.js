@@ -8,7 +8,13 @@ app.use(bodyParser.json());
 const token = process.env.WIALON_TOKEN;
 const appKey = process.env.APP_KEY;
 
+let liveTelematicsData = {};
+
 const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
+
+app.post("services/ekar/getUnits", isAuth, (req, res) => {
+  res.json(liveTelematicsData);
+});
 
 app.post("/services/ekar/commands", isAuth, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
@@ -158,8 +164,9 @@ function isAuth(req, res, next) {
 
 const PORT = process.env.PORT || 8082;
 
-app.listen(PORT, () => {
-  console.log(`SERVET STARTED AT PORT ${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`SERVER STARTED AT PORT ${PORT}`);
+  await consumeData();
 });
 
 // functions
@@ -175,6 +182,31 @@ const sentQ = async (device_id, command_key) => {
         JSON.stringify({ device_id: device_id, command_key: command_key })
       )
     );
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const q = "getUnits";
+const consumeData = async () => {
+  try {
+    console.log("TELEMATICS CONSUMER STARTED!");
+    console.log("WAITING FOR MESSAGES...");
+    const conn = await amqp.connect("amqp://ekar:11223344@localhost");
+    const channel = await conn.createChannel();
+    const result = channel.assertQueue(q);
+    channel.consume(q, (msg) => {
+      if (msg !== null) {
+        console.log("Message Consumed!");
+        let data = {
+          message: JSON.parse(msg.content.toString()),
+          status: "Message Received!" + Date(),
+        };
+        console.log(data);
+        liveTelematicsData = data.message;
+        channel.ack(msg);
+      }
+    });
   } catch (err) {
     console.error(err);
   }
