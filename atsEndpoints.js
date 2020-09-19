@@ -163,7 +163,7 @@ function isAuth(req, res, next) {
   }
 }
 
-const PORT = process.env.PORT || 80;
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, async () => {
   console.log(`ATS ENDPOINTS STARTED AT PORT ${PORT}`);
