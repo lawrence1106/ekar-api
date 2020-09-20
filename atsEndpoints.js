@@ -3,6 +3,9 @@ const express = require("express");
 const app = express();
 const amqp = require("amqplib");
 const bodyParser = require("body-parser");
+const FormData = require('form-data');
+const axios = require('axios');
+
 app.use(bodyParser.json());
 
 const token = process.env.WIALON_TOKEN;
@@ -12,11 +15,10 @@ let liveTelematicsData = {};
 
 const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
 
-app.post("/services/ekar/getUnits", isAuth, (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  res.json(liveTelematicsData);
+app.get("/services/ekar/getUnits", isAuth, (req, res) => {
+  if(Object.keys(liveTelematicsData).length === 0) return res.json({ status: "No Events Yet"});
+    return res.json(liveTelematicsData);
 });
-
 app.post("/services/ekar/commands", isAuth, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   let device_id = req.body.device_id;
@@ -152,7 +154,6 @@ app.post("/services/ekar/getUnitInterval", isAuth, async (req, res) => {
 // middlewares
 function isAuth(req, res, next) {
   let authorization = req.headers.authorization.split("Bearer ")[1];
-  if (!authorization) return res.sendStatus(404);
   if (authorization !== appKey) return res.sendStatus(401);
   try {
     req.headers.authorization = "Authorized";

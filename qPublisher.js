@@ -12,7 +12,7 @@ const updateFlagsUrl =
 const avl_evtsUrl = "https://hst-api.wialon.com/avl_evts";
 const token = process.env.WIALON_TOKEN;
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8085;
 let msgQData = new Object();
 app.listen(PORT, () => {
   createRefreshsession();
