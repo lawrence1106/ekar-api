@@ -3,8 +3,8 @@ const express = require("express");
 const app = express();
 const amqp = require("amqplib");
 const bodyParser = require("body-parser");
-const FormData = require('form-data');
-const axios = require('axios');
+const FormData = require("form-data");
+const axios = require("axios");
 
 app.use(bodyParser.json());
 
@@ -16,8 +16,9 @@ let liveTelematicsData = {};
 const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
 
 app.get("/services/ekar/getUnits", isAuth, (req, res) => {
-  if(Object.keys(liveTelematicsData).length === 0) return res.json({ status: "No Events Yet"});
-    return res.json(liveTelematicsData);
+  if (Object.keys(liveTelematicsData).length === 0)
+    return res.json({ status: "No Events Yet" });
+  return res.json(liveTelematicsData);
 });
 app.post("/services/ekar/commands", isAuth, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
@@ -168,7 +169,6 @@ const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, async () => {
   console.log(`ATS ENDPOINTS STARTED AT PORT ${PORT}`);
-  await consumeData();
 });
 
 // functions
@@ -190,26 +190,31 @@ const sentQ = async (device_id, command_key) => {
 };
 
 const qUnits = "getUnits";
-const consumeData = async () => {
-  try {
-    console.log(`TELEMATICS CONSUMER STARTED AT PORT ${PORT}!`);
-    console.log("WAITING FOR MESSAGES...");
-    const conn = await amqp.connect("amqp://ekar:11223344@localhost");
-    const channel = await conn.createChannel();
-    const result = channel.assertQueue(qUnits);
-    channel.consume(qUnits, (msg) => {
-      if (msg !== null) {
-        console.log("Message Consumed!");
-        let data = {
-          message: JSON.parse(msg.content.toString()),
-          status: "Message Received!" + Date(),
-        };
-        console.log(data);
-        liveTelematicsData = data.message;
-        channel.ack(msg);
-      }
+console.log(`WORKER STARTED!`);
+console.log(`WAITING FOR MESSAGES...`);
+amqp
+  .connect("amqp://ekar:11223344@localhost")
+  .then(function (conn) {
+    return conn.createChannel();
+  })
+  .then(async (ch) => {
+    return ch.assertQueue(qUnits).then(function (ok) {
+      return ch.consume(
+        qUnits,
+        function (msg) {
+          if (msg !== null) {
+            console.log("Message Consumed!");
+            let data = {
+              message: JSON.parse(msg.content.toString()),
+              status: "Message Received!" + Date(),
+            };
+            console.log(data);
+            ch.ack(msg);
+            liveTelematicsData = data.message;
+          }
+        },
+        { noAck: false }
+      );
     });
-  } catch (err) {
-    console.error(err);
-  }
-};
+  })
+  .catch(console.warn);

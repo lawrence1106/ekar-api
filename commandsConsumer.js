@@ -1,61 +1,16 @@
 require("dotenv").config();
-const express = require("express");
-const app = express();
 const amqp = require("amqplib");
 const axios = require("axios");
 const FormData = require("form-data");
-
-const PORT = process.env.PORT || 8083;
 
 const host = "https://hst-api.wialon.com/wialon/ajax.html?svc=token/login";
 const commandURL =
   "https://hst-api.wialon.com/wialon/ajax.html?svc=unit/exec_cmd";
 const searchItemUrl =
   "https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items";
-// command token expires after 1 day starting 09-15-2020
 const commandToken = process.env.COMMAND_TOKEN;
 
-app.listen(PORT, async () => {
-  console.log(`COMMANDS CONSUMER STARTED AT PORT ${PORT}`);
-  console.log("WAITING FOR COMMAND MESSAGES...");
-  await consumeMsg();
-});
-
 // functions
-const q = "commands";
-const consumeMsg = async () => {
-  try {
-    const connection = await amqp.connect("amqp://ekar:11223344@localhost");
-    const channel = await connection.createChannel();
-    const result = await channel.assertQueue(q);
-    channel.consume(q, async (msg) => {
-      if (msg !== null) {
-        let parsedMessage = JSON.parse(msg.content.toString());
-        let imei_no = parsedMessage.device_id;
-        let command_key = parsedMessage.command_key;
-
-        console.log({ status: true, data: parsedMessage, date: Date() });
-
-        let unitID = await getUnitID(imei_no);
-
-        console.log("Executing Command");
-
-        let sendCommand = await execCmd(unitID, command_key);
-
-        if (sendCommand === true) {
-          console.log("Command Executed!");
-          console.log("Acknowledging Message...");
-        } else {
-          console.log("Taihen desu!");
-        }
-        channel.ack(msg);
-        console.log("Message Acknowledge!");
-      }
-    });
-  } catch (err) {
-    console.error(err);
-  }
-};
 
 const getSid = async () => {
   let formData = new FormData();
@@ -164,3 +119,40 @@ const execCmd = async (device_id, command_param) => {
   };
   return await sendCommand();
 };
+
+const q = "commands";
+const consumeMsg = async () => {
+  try {
+    const connection = await amqp.connect("amqp://ekar:11223344@localhost");
+    const channel = await connection.createChannel();
+    const result = await channel.assertQueue(q);
+    channel.consume(q, async (msg) => {
+      if (msg !== null) {
+        let parsedMessage = JSON.parse(msg.content.toString());
+        let imei_no = parsedMessage.device_id;
+        let command_key = parsedMessage.command_key;
+
+        console.log({ status: true, data: parsedMessage, date: Date() });
+
+        let unitID = await getUnitID(imei_no);
+
+        console.log("Executing Command");
+
+        let sendCommand = await execCmd(unitID, command_key);
+
+        if (sendCommand === true) {
+          console.log("Command Executed!");
+          console.log("Acknowledging Message...");
+        } else {
+          console.log("Taihen desu!");
+        }
+        channel.ack(msg);
+        console.log("Message Acknowledge!");
+      }
+    });
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+consumeMsg();

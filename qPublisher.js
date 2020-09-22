@@ -14,6 +14,7 @@ const token = process.env.WIALON_TOKEN;
 
 const PORT = process.env.PORT || 8085;
 let msgQData = new Object();
+
 app.listen(PORT, () => {
   createRefreshsession();
 
@@ -223,7 +224,9 @@ const sendMessage = async (msg) => {
     const channel = await conn.createChannel();
     const result = channel.assertQueue(q);
     if (msg.length > 0) {
-      channel.sendToQueue(q, Buffer.from(JSON.stringify(msg)));
+      channel.sendToQueue(q, Buffer.from(JSON.stringify(msg)), {
+        persistent: true,
+      });
       console.log({
         message: msg,
         status: "Event Sent to Queue! " + Date(),
