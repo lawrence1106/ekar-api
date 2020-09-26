@@ -214,14 +214,14 @@ console.log(`WAITING FOR MESSAGES...`);
 
 amqp
   .connect("amqp://ekar:11223344@localhost")
-  .then(function (conn) {
+  .then((conn) => {
     return conn.createChannel();
   })
   .then(async (ch) => {
-    return ch.assertQueue(qUnits).then(function (ok) {
+    return ch.assertQueue(qUnits).then((ok) => {
       return ch.consume(
         qUnits,
-        function (msg) {
+        (msg) => {
           if (msg !== null) {
             console.log("Message Consumed!");
             let data = {

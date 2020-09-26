@@ -120,13 +120,31 @@ const execCmd = async (device_id, command_param) => {
   return await sendCommand();
 };
 
-const q = "commands";
+const commandsQ = "commands";
+let channel = [];
+
+const createConn = async () => {
+  try {
+    const conn = await amqp.connect("amqp://ekar:11223344@localhost");
+    const channel = await conn.createChannel();
+
+    return { channel: channel };
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const createChannel = async () => {
+  let ch = await createConn();
+  channel.push(ch.channel);
+};
+
+createChannel();
+
 const consumeMsg = async () => {
   try {
-    const connection = await amqp.connect("amqp://ekar:11223344@localhost");
-    const channel = await connection.createChannel();
-    const result = await channel.assertQueue(q);
-    channel.consume(q, async (msg) => {
+    const result = await channel[0].assertQueue(commandsQ);
+    channel[0].consume(commandsQ, async (msg) => {
       if (msg !== null) {
         let parsedMessage = JSON.parse(msg.content.toString());
         let imei_no = parsedMessage.device_id;
@@ -143,11 +161,13 @@ const consumeMsg = async () => {
         if (sendCommand === true) {
           console.log("Command Executed!");
           console.log("Acknowledging Message...");
+          channel.ack(msg);
+          console.log("Message Acknowledge!");
         } else {
-          console.log("Taihen desu!");
+          console.log(
+            "Oops! Something went wrong! Please contact Support for details"
+          );
         }
-        channel.ack(msg);
-        console.log("Message Acknowledge!");
       }
     });
   } catch (err) {
