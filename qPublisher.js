@@ -217,14 +217,32 @@ let getEvent = async (sid) => {
   }
 };
 
+let channel = [];
 let q = "getUnits";
-const sendMessage = async (msg) => {
+
+const createConn = async () => {
   try {
     const conn = await amqp.connect("amqp://ekar:11223344@localhost");
     const channel = await conn.createChannel();
-    const result = channel.assertQueue(q);
+
+    return { channel: channel };
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const createChannel = async () => {
+  let ch = await createConn();
+  channel.push(ch.channel);
+};
+
+createChannel();
+
+const sendMessage = async (msg) => {
+  try {
+    const result = channel[0].assertQueue(q);
     if (msg.length > 0) {
-      channel.sendToQueue(q, Buffer.from(JSON.stringify(msg)), {
+      channel[0].sendToQueue(q, Buffer.from(JSON.stringify(msg)), {
         persistent: true,
       });
       console.log({

@@ -172,13 +172,31 @@ app.listen(PORT, async () => {
 });
 
 // functions
+let channel = [];
 const qCommands = "commands";
+
+const createConn = async () => {
+  try {
+    const conn = await amqp.connect("amqp://ekar:11223344@localhost");
+    const channel = await conn.createChannel();
+
+    return { channel: channel };
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const createChannel = async () => {
+  let ch = await createConn();
+  channel.push(ch.channel);
+};
+
+createChannel();
+
 const sentQ = async (device_id, command_key) => {
   try {
-    const connection = await amqp.connect("amqp://ekar:11223344@localhost");
-    const channel = await connection.createChannel();
-    const result = await channel.assertQueue(qCommands);
-    channel.sendToQueue(
+    const result = channel[0].assertQueue(qCommands);
+    channel[0].sendToQueue(
       qCommands,
       Buffer.from(
         JSON.stringify({ device_id: device_id, command_key: command_key })
@@ -190,8 +208,10 @@ const sentQ = async (device_id, command_key) => {
 };
 
 const qUnits = "getUnits";
+
 console.log(`WORKER STARTED!`);
 console.log(`WAITING FOR MESSAGES...`);
+
 amqp
   .connect("amqp://ekar:11223344@localhost")
   .then(function (conn) {
